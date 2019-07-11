@@ -111,5 +111,85 @@ let PENDING="pending",  //进行中
         2为了保证then的顺序调用,onFufilled或onRejected必须异步调用
 */
 {
-    
+    Promise.prototype.then=function(onFufilled,onRejected){
+        onFufilled=typeof onFufilled==='function'?onFufilled:function(value) {return value};
+        onRejected=typeof onRejected==='function'?onRejected:function(err) {throw err}
+        let promise2,_that=this;
+        if(_that.state===RESOLVED){
+            promise2=new Promise((resolve,reject)=>{
+                try{
+                  let x=onFufilled(_that.value);
+                  resolvePromise(promise2,x,resolve,reject);   
+                }catch(e){
+                    reject(e)
+                }  
+            })
+        }
+        if(_that.state===REJECTED){
+            promise2=new Promise((resolve,reject)=>{
+                try{
+                 let x=onRejected(_that.reason);   
+                 resolvePromise(promise2,x,resolve,reject);   
+                }catch(e){
+                    reject(e)
+                }  
+            })
+        }
+        if(_that.state===PENDING){
+            promise2=new Promise((resolve,reject)=>{
+                _that.onFufilledCallBack.push(function(){
+                    try{
+                        let x=onFufilled(_that.value);   
+                        resolvePromise(promise2,x,resolve,reject);   
+                    }catch(e){
+                        reject(e)
+                    }
+                })
+                _that.onRejectedCallBack.push(function(){
+                    try{
+                        let x=onRejected(_that.reason);   
+                        resolvePromise(promise2,x,resolve,reject);   
+                    }catch(e){
+                        reject(e)
+                    }
+                })
+            })
+        }
+    }
 }
+
+function resolvePromise(promise2,x,resolve,reject){
+    // 接受四个参数: 新的Promise、返回值，成功和失败的回调
+    if(x===promise2){
+        return reject(new TypeError('循环引用'));
+    }
+    let called = false; 
+    if(x!==null&&(typeof x==='object'||typeof x==='function')){
+        try{ // 是否是thenable对象（具有then方法的对象/函数）
+            let then=x.then;
+            if(then instanceof 'function'){ 
+                then.call(x,y=>{ //用call方法修改指针为x，否则this指向window
+                    //如果x是一个Promise对象，y参数表示x执行后的resolve值
+                    if(called){return}
+                    called=true;
+                    resolvePromise(promise2,y,resolve,reject); // y可能还是一个promise，在去解析直到返回的是一个普通值
+                },reason=>{
+                    if (called) return
+                    called = true
+                    reject(reason)
+                })
+            }else{ //说明是一个普通的 对象/函数
+                resolve(x) 
+            }
+        }catch(e){
+            if (called) return
+            called = true
+            reject(e)
+        }
+    }else{
+        resolve(x)
+    }
+}
+/*
+    第三版 结束
+*/

@@ -1,5 +1,5 @@
 //jQuery如何使用原型
-var jQuery=function(selector){
+var jQuery=function(selector){  
     return new jQuery.fn.init(selector); // 第一步找到构造函数 new jQuery.fn.init()
 }
 //定义构造函数
